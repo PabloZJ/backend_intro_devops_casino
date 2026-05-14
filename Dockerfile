@@ -7,8 +7,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # npm ci instala exactamente lo del lockfile, más limpio que npm install
-RUN npm ci --omit=dev
-
+RUN npm install --omit=dev
 # ─── Stage 2: runtime ───────────────────────────────────────────────────────
 FROM node:20-alpine AS runtime
 
