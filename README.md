@@ -204,3 +204,5 @@ para los criterios completos.
 ## Repositorio del frontend
 
 [`casino-frontend`](../casino-frontend)
+#   V i d a l C a s i n o  
+ 
