@@ -52,5 +52,6 @@ jobs:
           kubectl apply -f k8s/postgres.yaml
           kubectl apply -f k8s/deployment.yaml
           kubectl apply -f k8s/service.yaml
+          kubectl apply -f k8s/hpa.yaml
           kubectl set image deployment/casino-backend casino-backend=$ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}
           kubectl rollout status deployment/casino-backend
