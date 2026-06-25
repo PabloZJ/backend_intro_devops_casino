@@ -8,6 +8,7 @@ on:
 env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: casino-backend
+  EKS_CLUSTER: vidal-casino-cluster
 
 jobs:
   build-push-deploy:
@@ -40,33 +41,16 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:v1.0.0
 
-      - name: Deploy en EC2 backend via bastion (frontend)
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.EC2_FRONTEND_HOST }}
-          username: ec2-user
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            ssh -i ~/.ssh/Eva2-Devops.pem -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_BACKEND_HOST }} "
-              aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
-              aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-              aws configure set aws_session_token ${{ secrets.AWS_SESSION_TOKEN }}
-              aws configure set region us-east-1
-              aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
-              docker pull ${{ secrets.ECR_REGISTRY }}/casino-backend:latest
-              docker stop casino_backend || true
-              docker rm casino_backend || true
-              docker run -d \
-                --name casino_backend \
-                --restart unless-stopped \
-                -p 3000:3000 \
-                -e PORT=3000 \
-                -e JWT_SECRET=${{ secrets.JWT_SECRET }} \
-                -e DB_HOST=${{ secrets.DB_HOST }} \
-                -e DB_PORT=5432 \
-                -e DB_USER=${{ secrets.DB_USER }} \
-                -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} \
-                -e DB_NAME=${{ secrets.DB_NAME }} \
-                -e CORS_ORIGIN=${{ secrets.CORS_ORIGIN }} \
-                ${{ secrets.ECR_REGISTRY }}/casino-backend:latest
-            "
+      - name: Configurar kubectl
+        run: |
+          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER }}
+
+      - name: Deploy manifiestos en EKS
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          kubectl apply -f k8s/postgres.yaml
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
+          kubectl set image deployment/casino-backend casino-backend=$ECR_REGISTRY/$ECR_REPOSITORY:${{ github.sha }}
+          kubectl rollout status deployment/casino-backend

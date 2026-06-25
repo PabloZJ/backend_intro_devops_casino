@@ -32,6 +32,23 @@ app.get('/health', async (req, res) => {
   }
 });
 
+// /livez — liveness probe para Kubernetes
+// Responde 200 sin verificar BD. Si falla, K8s reinicia el pod.
+app.get('/livez', (req, res) => {
+  res.json({ status: 'ok', service: 'casino-backend' });
+});
+
+// /readyz — readiness probe para Kubernetes
+// Verifica conexión a BD. 503 si no está lista, K8s saca el pod del balanceo.
+app.get('/readyz', async (req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.json({ status: 'ready', service: 'casino-backend' });
+  } catch (err) {
+    res.status(503).json({ status: 'not ready', error: err.message });
+  }
+});
+
 // Bienvenida
 app.get('/', (req, res) => {
   res.json({
